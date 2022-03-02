@@ -1,7 +1,11 @@
 from datetime import datetime
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, List
 from zipfile import Path as ZipPath
 from zipfile import ZipFile
+
+import numpy as np
+
+from Conclusion import Conclusion
 
 #############
 
@@ -43,21 +47,25 @@ PROCESSED_FILES = 0
 ###############
 
 
-def evaluate_archive(path: ZipPath):
+def evaluate_archive(path: ZipPath) -> List[Conclusion]:
     for job_folder in path.iterdir():
         for user_folder in job_folder.iterdir():
             for sub_space_folder in user_folder.iterdir():
-                evaluate_problems(sub_space_folder)
+                return evaluate_problems(sub_space_folder)
 
 
-def evaluate_problems(problems_folder: ZipPath):
+def evaluate_problems(problems_folder: ZipPath) -> List[Conclusion]:
+    conclusions: List[Conclusion] = []
     for problem_category_folder in problems_folder.iterdir():
-        evaluate_problem_category_all_solvers(problem_category_folder)
+        conclusion = analyze_problem_category_all_solvers(problem_category_folder)
+        conclusions.append(conclusion)
+    return conclusions
 
 
-def analyze_problem_category_all_solvers(problem_category_folder: ZipPath):
+def analyze_problem_category_all_solvers(problem_category_folder: ZipPath) -> Conclusion:
     evaluation = evaluate_problem_category_all_solvers(problem_category_folder)
-    pass
+    return Conclusion(problem_category_folder.name,
+                      evaluation, EVAL_TOPICS, SOLVERS)
 
 
 def evaluate_problem_category_all_solvers(problem_category_folder: ZipPath):
@@ -83,10 +91,10 @@ def evaluate_problem_category_all_solvers(problem_category_folder: ZipPath):
     evaluation: Dict[str, Dict[str, Dict[str, Union[str, float]]]] = {}
 
     for solver_folder in problem_category_folder.iterdir():
-        print_status()
         solver = solver_folder.name
         if solver in SOLVERS:
             evaluation[solver] = evaluate_problem_category_single_solver(solver_folder)
+    print_status(problem_category_folder.name)
     return evaluation
 
 
@@ -132,7 +140,7 @@ def evaluate_single_problem(problem_folder: ZipPath) -> Dict[str, Union[str, flo
                 evaluation[topic] = extract_result(topic, text)
         else:
             for topic in EVAL_TOPICS:
-                evaluation[topic] = ""
+                evaluation[topic] = np.nan
         global PROCESSED_FILES
         PROCESSED_FILES += 1
         return evaluation
@@ -156,7 +164,7 @@ def extract_result(topic: str, text) -> Optional[float]:
     """
     topic_start = text.find(topic)
     if topic_start == -1:
-        return None
+        return np.nan
 
     value_start = text.find(":", topic_start)
     value_end = text.find("\n", value_start)
@@ -164,26 +172,20 @@ def extract_result(topic: str, text) -> Optional[float]:
     return float(value_string)
 
 
-def print_status():
+def print_status(message: str):
     percentage = PROCESSED_FILES / NUM_FILES
     if percentage == 0:
         return
     current_time = datetime.now()
     running = current_time - start_time
     time_left = (running / percentage) * (1-percentage)
-    print(f"{round(percentage * 100, 2)}% finished \t expected time: {current_time+time_left}")
+    print(f"{message} {round(percentage * 100, 2)}% finished \t expected time: {current_time+time_left}")
 
 ###############
 
 
 start_time = datetime.now()
 
-for solver in SOLVERS:
-    FILES[solver] = open(f"{RESULT_FILE}_{solver}.csv", "w+", newline="")
-
 zip_file = ZipFile(ZIP_NAME, 'r')
 zip_path = ZipPath(zip_file, at='')
-evaluate_archive(zip_path)
-
-for solver in SOLVERS:
-    FILES[solver].close()
+conclusions = evaluate_archive(zip_path)
