@@ -2,8 +2,8 @@ from datetime import datetime
 from typing import Dict, Optional, Union, List
 from zipfile import Path as ZipPath
 from zipfile import ZipFile
+import json
 
-import numpy as np
 
 from Conclusion import Conclusion
 
@@ -38,7 +38,7 @@ ALL_TOPICS = EVAL_TOPICS.copy()
 ALL_TOPICS.append(STATUS_TOPIC)
 
 FILES = {}
-RESULT_FILE = "result"
+RESULT_FOLDER = "results"
 
 NUM_PROBLEMS = 24098
 NUM_FILES = len(SOLVERS) * NUM_PROBLEMS
@@ -47,25 +47,25 @@ PROCESSED_FILES = 0
 ###############
 
 
-def evaluate_archive(path: ZipPath) -> List[Conclusion]:
+def evaluate_archive(path: ZipPath):
     for job_folder in path.iterdir():
         for user_folder in job_folder.iterdir():
             for sub_space_folder in user_folder.iterdir():
-                return evaluate_problems(sub_space_folder)
+                evaluate_problems(sub_space_folder)
 
 
-def evaluate_problems(problems_folder: ZipPath) -> List[Conclusion]:
-    conclusions: List[Conclusion] = []
+def evaluate_problems(problems_folder: ZipPath):
+    # conclusions: dict = {}
     for problem_category_folder in problems_folder.iterdir():
         conclusion = analyze_problem_category_all_solvers(problem_category_folder)
-        conclusions.append(conclusion)
-    return conclusions
+        # conclusions[problem_category_folder.name] = conclusion
+        export_conclusion(problem_category_folder.name, conclusion)
+    # return conclusions
 
 
-def analyze_problem_category_all_solvers(problem_category_folder: ZipPath) -> Conclusion:
+def analyze_problem_category_all_solvers(problem_category_folder: ZipPath) -> dict:
     evaluation = evaluate_problem_category_all_solvers(problem_category_folder)
-    return Conclusion(problem_category_folder.name,
-                      evaluation, EVAL_TOPICS, SOLVERS)
+    return Conclusion.conclude(evaluation, EVAL_TOPICS, SOLVERS)
 
 
 def evaluate_problem_category_all_solvers(problem_category_folder: ZipPath):
@@ -140,7 +140,7 @@ def evaluate_single_problem(problem_folder: ZipPath) -> Dict[str, Union[str, flo
                 evaluation[topic] = extract_result(topic, text)
         else:
             for topic in EVAL_TOPICS:
-                evaluation[topic] = np.nan
+                evaluation[topic] = float("nan")
         global PROCESSED_FILES
         PROCESSED_FILES += 1
         return evaluation
@@ -164,12 +164,20 @@ def extract_result(topic: str, text) -> Optional[float]:
     """
     topic_start = text.find(topic)
     if topic_start == -1:
-        return np.nan
+        return float("nan")
 
     value_start = text.find(":", topic_start)
     value_end = text.find("\n", value_start)
     value_string = text[value_start+1:value_end].replace("s", "")
     return float(value_string)
+
+#####################
+
+def export_conclusion(problem_category, conclusion):
+    file = open(f"{RESULT_FOLDER}/{problem_category}.json", "w+")
+    output = json.dumps(conclusion, sort_keys=True, indent=4)
+    file.write(output)
+    file.close()
 
 
 def print_status(message: str):
