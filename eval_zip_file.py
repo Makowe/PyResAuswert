@@ -59,7 +59,7 @@ def get_solver_and_problem(single_file: ZipInfo) -> (str, str):
     return solver, problem
 
 
-def evaluate_archive(zip_file: ZipFile):
+def evaluate_archive(zip_file: ZipFile) -> dict:
     info_list = zip_file.infolist()
     evaluation_all = init_evaluation()
 
@@ -68,7 +68,10 @@ def evaluate_archive(zip_file: ZipFile):
         if solver in SOLVERS:
             evaluation_single = evaluate_problem(zip_file, single_file)
             evaluation_all[solver][problem] = evaluation_single
+            if not PROCESSED_FILES % 100:
+                print_status(PROCESSED_FILES)
     conclusion = Conclusion.conclude(evaluation_all, EVAL_TOPICS, SOLVERS)
+    return conclusion
 
 
 def evaluate_problem(zip_file: ZipFile, file_info: ZipInfo) -> Dict[str, Union[str, float]]:
@@ -80,9 +83,10 @@ def evaluate_problem(zip_file: ZipFile, file_info: ZipInfo) -> Dict[str, Union[s
         ...
     }
     """
-    problem_file = ZipPath(zip_file, at=file_info.filename)
     evaluation = {}
-    text = problem_file.read_text()
+    file = zip_file.open(file_info.filename, "r")
+    text = file.read().decode("utf-8")
+
     result_type = extract_status(text)
     evaluation[STATUS_TOPIC] = result_type
 
@@ -132,7 +136,7 @@ def export_conclusion(problem_category, conclusion):
     file.close()
 
 
-def print_status(message: str):
+def print_status(message):
     percentage = PROCESSED_FILES / NUM_FILES
     if percentage == 0:
         return
@@ -147,4 +151,4 @@ def print_status(message: str):
 start_time = datetime.now()
 
 zip_file = ZipFile(ZIP_NAME, 'r')
-evaluate_archive(zip_file)
+conclusion = evaluate_archive(zip_file)
