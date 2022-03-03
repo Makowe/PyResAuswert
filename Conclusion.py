@@ -1,5 +1,8 @@
 from typing import Dict, Union, List
 
+import statistics
+import math
+
 import numpy as np
 
 
@@ -18,86 +21,74 @@ class Conclusion:
 
     SUB_GROUPS = ["all", "shared"]
 
-
-    def __init__(self, problem_category: str, evaluation: Dict[str, Dict[str, Dict[str, Union[str, float]]]],
-                 topics: List[str], solvers: List[str]):
-        self.problem_category: str = problem_category
-        """ name of the problem category (e.g. "PUZ")"""
-
-        self.evaluation = evaluation
-        """ reference to the evaluation dict """
-
-        self.solvers = solvers
-        self.topics = topics
-
-        self.solvers_contradict: bool = False
-        """ boolean states whether solvers get contradicting results on the same problem
-        (e.g. solver1: satisfiable, solver2: unsatisfiable)
-        """
-
-        self.conclusion: dict = {}
-        """ dictionary that includes the average values for the problems """
-
-        self.conclude()
-        del self.evaluation
-
-    def init_dict(self):
+    @staticmethod
+    def init_dict(topics: List[str]) -> Dict:
+        emtpy_conclusion = {}
         for status in Conclusion.STATUSES:
-            self.conclusion[status] = {}
+            emtpy_conclusion[status] = {}
             for sub_group in Conclusion.SUB_GROUPS:
-                self.conclusion[status][sub_group] = {}
-                for topic in self.topics:
-                    self.conclusion[status][sub_group][topic] = {}
-                self.conclusion[status][sub_group]["problems"] = {}
+                emtpy_conclusion[status][sub_group] = {}
+                for topic in topics:
+                    emtpy_conclusion[status][sub_group][topic] = {}
+                emtpy_conclusion[status][sub_group]["problems"] = {}
+        return emtpy_conclusion
 
-    def conclude(self):
-        self.init_dict()
+    @staticmethod
+    def conclude(evaluation, topics, solvers) -> dict:
+        conclusion: dict = Conclusion.init_dict(topics)
         for status in Conclusion.STATUSES:
-            for solver in self.solvers:
-                self.conclude_single_solver(status, "all", solver)
+            for solver in solvers:
+                Conclusion.conclude_single_solver(conclusion, evaluation, status,
+                                                  "all", topics, solver)
 
-        self.filter_shared_evaluation()
+        Conclusion.filter_shared_evaluation(evaluation, solvers)
         for status in Conclusion.STATUSES:
-            for solver in self.solvers:
-                self.conclude_single_solver(status, "shared", solver)
+            for solver in solvers:
+                Conclusion.conclude_single_solver(conclusion, evaluation, status,
+                                                  "shared", topics, solver)
+        return conclusion
 
-    def conclude_single_solver(self, status: str, sub_type: str, solver: str):
+    @staticmethod
+    def conclude_single_solver(conclusion: dict, evaluation: dict, status: str,
+                               sub_type: str, topics: List[str], solver: str):
         result_list = {}
         num_problems = 0
 
-        for topic in self.topics:
+        for topic in topics:
             result_list[topic] = []
 
-        for problem in self.evaluation[solver].keys():
-            if self.evaluation[solver][problem][Conclusion.STATUS_KEY] in Conclusion.STATUS_GROUPS[status]:
+        for problem in evaluation[solver].keys():
+            if evaluation[solver][problem][Conclusion.STATUS_KEY] in Conclusion.STATUS_GROUPS[status]:
                 num_problems += 1
-                for topic in self.topics:
-                    result_list[topic].append(self.evaluation[solver][problem][topic])
+                for topic in topics:
+                    result_list[topic].append(evaluation[solver][problem][topic])
 
-        self.conclusion[status][sub_type]["problems"][solver] = num_problems
+        conclusion[status][sub_type]["problems"][solver] = num_problems
         for topic in result_list.keys():
-            self.conclusion[status][sub_type][topic][solver] \
-                 = np.nanmean(result_list[topic])
+            mean = np.nanmean(result_list[topic])
+            conclusion[status][sub_type][topic][solver] = mean
 
-    def check_contradiction(self, evaluation: Dict[str, Dict[str, Union[str, float]]]):
+    @staticmethod
+    def check_contradiction(evaluation: dict):
         pass
 
-    def filter_shared_evaluation(self):
+    @staticmethod
+    def filter_shared_evaluation(evaluation: dict, solvers: List[str]):
         """ returns a new filtered dictionary of evaluations that only includes problems where
         every solver has the same status result """
-        if len(self.solvers) <= 1:
+        if len(solvers) <= 1:
             return
         problems_to_delete: List[str] = []
 
-        solver0 = self.solvers[0]
-        for problem in self.evaluation[solver0].keys():
-            status_0 = self.evaluation[solver0][problem][Conclusion.STATUS_KEY]
-            for solver_i in self.solvers[1:]:
-                status_i = self.evaluation[solver_i][problem][Conclusion.STATUS_KEY]
+        solver0 = solvers[0]
+        for problem in evaluation[solver0].keys():
+            status_0 = evaluation[solver0][problem][Conclusion.STATUS_KEY]
+            for solver_i in solvers[1:]:
+                status_i = evaluation[solver_i][problem][Conclusion.STATUS_KEY]
                 if status_i != status_0:
                     problems_to_delete.append(problem)
                     break
 
-        for solver in self.solvers:
+        for solver in solvers:
             for problem in problems_to_delete:
-                del self.evaluation[solver][problem]
+                del evaluation[solver][problem]
