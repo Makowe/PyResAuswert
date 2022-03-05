@@ -7,13 +7,19 @@ from Conclusion import Conclusion
 
 #############
 
-ZIP_NAME = "Job50527_output.zip"
+ZIP_NAME = "Job50618_output"
 
 SOLVERS = [
-    "PyRes_v2_0_sos0___PyRes_sos0",
-    "PyRes_v2_0_sos1___PyRes_sos1",
-    "PyRes_v2_0_sos2___PyRes_sos2",
-    "PyRes_v2_0_sos3___PyRes_sos3",
+    "PyRes_v2.0.5___PyRes_sos0",
+    "PyRes_v2.0.5___PyRes_sos1",
+    "PyRes_v2.0.5___PyRes_sos2",
+    "PyRes_v2.0.5___PyRes_sos3",
+    "PyRes_v2.0.5___PyRes_sos1r1",
+    "PyRes_v2.0.5___PyRes_sos1r2",
+    "PyRes_v2.0.5___PyRes_sos1r3",
+    "PyRes_v2.0.5___PyRes_sos1r4",
+    "PyRes_v2.0.5___PyRes_sos1r5",
+    "PyRes_v2.0.5___PyRes_sos1r6",
 ]
 
 EVAL_TOPICS = [
@@ -59,7 +65,7 @@ def get_solver_and_problem(single_file: ZipInfo) -> (str, str):
     return solver, problem
 
 
-def evaluate_archive(zip_file: ZipFile) -> dict:
+def evaluate_archive(zip_file: ZipFile) -> (dict, dict):
     info_list = zip_file.infolist()
     evaluation_all = init_evaluation()
 
@@ -68,10 +74,10 @@ def evaluate_archive(zip_file: ZipFile) -> dict:
         if solver in SOLVERS:
             evaluation_single = evaluate_problem(zip_file, single_file)
             evaluation_all[solver][problem] = evaluation_single
-            if not PROCESSED_FILES % 100:
+            if not PROCESSED_FILES % 1000:
                 print_status(PROCESSED_FILES)
     conclusion = Conclusion.conclude(evaluation_all, EVAL_TOPICS, SOLVERS)
-    return conclusion
+    return evaluation_all, conclusion
 
 
 def evaluate_problem(zip_file: ZipFile, file_info: ZipInfo) -> Dict[str, Union[str, float]]:
@@ -150,5 +156,9 @@ def print_status(message):
 
 start_time = datetime.now()
 
-zip_file = ZipFile(ZIP_NAME, 'r')
-conclusion = evaluate_archive(zip_file)
+zip_file = ZipFile(f"{ZIP_NAME}.zip", "r")
+evaluation, conclusion = evaluate_archive(zip_file)
+print(Conclusion.check_solvers_contradict(evaluation, SOLVERS))
+file = open(f"{RESULT_FOLDER}/{ZIP_NAME}.json", "w+")
+file.write(json.dumps(conclusion, indent=4))
+file.close()

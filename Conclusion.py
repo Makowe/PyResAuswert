@@ -92,3 +92,23 @@ class Conclusion:
         for solver in solvers:
             for problem in problems_to_delete:
                 del evaluation[solver][problem]
+
+    @staticmethod
+    def check_solvers_contradict(evaluation: Dict[str, Dict[str, dict]], solvers):
+        solver0 = solvers[0]
+        contradictions: List = []
+        for problem in evaluation[solver0].keys():
+            some_unsatisfiable = False
+            some_satisfiable = False
+            for solver in evaluation.keys():
+                status_pair = evaluation[solver][problem][Conclusion.STATUS_KEY]
+                if status_pair in Conclusion.STATUS_GROUPS["unsatisfiable"]:
+                    some_unsatisfiable = True
+                if status_pair in Conclusion.STATUS_GROUPS["satisfiable"]:
+                    some_satisfiable = True
+                if some_satisfiable and some_unsatisfiable:
+                    contradictions.append(problem)
+        if len(contradictions):
+            return f"{len(contradictions)} contradictions found: {contradictions}"
+        else:
+            return "no contradictions found"
