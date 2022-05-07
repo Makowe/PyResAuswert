@@ -1,25 +1,29 @@
 import json
 from datetime import datetime
 from typing import Dict, Optional, Union
-from zipfile import Path as ZipPath, ZipInfo, ZipFile
+from zipfile import ZipInfo, ZipFile
 
 from Conclusion import Conclusion
 
+from eval_actual_results import eval_actual_results
+
 #############
 
-ZIP_NAME = "Job50618_output"
+ZIP_NAME = "Job50840_output"
+RESULT_FILE_SUFFIX = ""
 
 SOLVERS = [
-    "PyRes_v2.0.5___PyRes_sos0",
-    "PyRes_v2.0.5___PyRes_sos1",
-    "PyRes_v2.0.5___PyRes_sos2",
-    "PyRes_v2.0.5___PyRes_sos3",
-    "PyRes_v2.0.5___PyRes_sos1r1",
-    "PyRes_v2.0.5___PyRes_sos1r2",
-    "PyRes_v2.0.5___PyRes_sos1r3",
-    "PyRes_v2.0.5___PyRes_sos1r4",
-    "PyRes_v2.0.5___PyRes_sos1r5",
-    "PyRes_v2.0.5___PyRes_sos1r6",
+    "PyRes_v2.0.8___PyRes_sos0",
+    "PyRes_v2.0.8___PyRes_sos1",
+    "PyRes_v2.0.8___PyRes_sos2",
+    "PyRes_v2.0.8___PyRes_sos3",
+    "PyRes_v2.0.8___PyRes_sos1r1",
+    "PyRes_v2.0.8___PyRes_sos1r2",
+    "PyRes_v2.0.8___PyRes_sos1r3",
+    "PyRes_v2.0.8___PyRes_sos1r4",
+    "PyRes_v2.0.8___PyRes_sos1r5",
+    "PyRes_v2.0.8___PyRes_sos1r6",
+    #"PyRes_2.0.10___PyRes_sos0_lit"
 ]
 
 EVAL_TOPICS = [
@@ -74,8 +78,8 @@ def evaluate_archive(zip_file: ZipFile) -> (dict, dict):
         if solver in SOLVERS:
             evaluation_single = evaluate_problem(zip_file, single_file)
             evaluation_all[solver][problem] = evaluation_single
-            if not PROCESSED_FILES % 1000:
-                print_status(PROCESSED_FILES)
+            if PROCESSED_FILES % 5000 == 0:
+                print_status()
     conclusion = Conclusion.conclude(evaluation_all, EVAL_TOPICS, SOLVERS)
     return evaluation_all, conclusion
 
@@ -142,14 +146,11 @@ def export_conclusion(problem_category, conclusion):
     file.close()
 
 
-def print_status(message):
+def print_status():
     percentage = PROCESSED_FILES / NUM_FILES
     if percentage == 0:
         return
-    current_time = datetime.now()
-    running = current_time - start_time
-    time_left = (running / percentage) * (1-percentage)
-    print(f"{message} {round(percentage * 100, 2)}% finished \t expected time: {current_time+time_left}")
+    print(f"{PROCESSED_FILES}/{NUM_FILES} files, {round(percentage * 100, 2)}% finished")
 
 ###############
 
@@ -158,7 +159,15 @@ start_time = datetime.now()
 
 zip_file = ZipFile(f"{ZIP_NAME}.zip", "r")
 evaluation, conclusion = evaluate_archive(zip_file)
-print(Conclusion.check_solvers_contradict(evaluation, SOLVERS))
-file = open(f"{RESULT_FOLDER}/{ZIP_NAME}.json", "w+")
+zip_file.close()
+actual_evaluation = eval_actual_results()
+
+
+contradictions = Conclusion.contradictions_between_solvers(evaluation, actual_evaluation, SOLVERS)
+if contradictions is not None:
+    print(contradictions)
+else:
+    print("no contradictions")
+file = open(f"{RESULT_FOLDER}/{ZIP_NAME}_{RESULT_FILE_SUFFIX}.json", "w+")
 file.write(json.dumps(conclusion, indent=4))
 file.close()

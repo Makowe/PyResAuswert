@@ -1,13 +1,10 @@
-from typing import Dict, Union, List
-
-import statistics
-import math
+from typing import Dict, List, Tuple, Optional
 
 import numpy as np
 
 
 class Conclusion:
-    """ class that holds a comparison of multiple solvers on a single problem category (e.g. PUZ)"""
+    """ class that generates a conclusion dictionary by an evaluation dictionary"""
 
     STATUSES = ["solved", "unsatisfiable", "satisfiable", "not_solved"]
     STATUS_KEY = "SZS status"
@@ -15,11 +12,27 @@ class Conclusion:
     STATUS_GROUPS = {
         "solved": ["Unsatisfiable", "Theorem", "Satisfiable"],
         "unsatisfiable": ["Unsatisfiable", "Theorem"],
-        "satisfiable": ["Satisfiable"],
+        "satisfiable": ["Satisfiable", "CounterSatisfiable"],
         "not_solved": ["ResourceOut"],
     }
 
     SUB_GROUPS = ["all", "shared"]
+
+    @staticmethod
+    def conclude(evaluation: dict, topics: list, solvers: list) -> dict:
+        evaluation = evaluation.copy()
+        conclusion: dict = Conclusion.init_dict(topics)
+        for status in Conclusion.STATUSES:
+            for solver in solvers:
+                Conclusion.conclude_single_solver(conclusion, evaluation, status,
+                                                  "all", topics, solver)
+
+        Conclusion.filter_shared_evaluation(evaluation, solvers)
+        for status in Conclusion.STATUSES:
+            for solver in solvers:
+                Conclusion.conclude_single_solver(conclusion, evaluation, status,
+                                                  "shared", topics, solver)
+        return conclusion
 
     @staticmethod
     def init_dict(topics: List[str]) -> Dict:
@@ -33,20 +46,7 @@ class Conclusion:
                 emtpy_conclusion[status][sub_group]["problems"] = {}
         return emtpy_conclusion
 
-    @staticmethod
-    def conclude(evaluation, topics, solvers) -> dict:
-        conclusion: dict = Conclusion.init_dict(topics)
-        for status in Conclusion.STATUSES:
-            for solver in solvers:
-                Conclusion.conclude_single_solver(conclusion, evaluation, status,
-                                                  "all", topics, solver)
 
-        Conclusion.filter_shared_evaluation(evaluation, solvers)
-        for status in Conclusion.STATUSES:
-            for solver in solvers:
-                Conclusion.conclude_single_solver(conclusion, evaluation, status,
-                                                  "shared", topics, solver)
-        return conclusion
 
     @staticmethod
     def conclude_single_solver(conclusion: dict, evaluation: dict, status: str,
@@ -94,21 +94,19 @@ class Conclusion:
                 del evaluation[solver][problem]
 
     @staticmethod
-    def check_solvers_contradict(evaluation: Dict[str, Dict[str, dict]], solvers):
-        solver0 = solvers[0]
-        contradictions: List = []
-        for problem in evaluation[solver0].keys():
-            some_unsatisfiable = False
-            some_satisfiable = False
-            for solver in evaluation.keys():
-                status_pair = evaluation[solver][problem][Conclusion.STATUS_KEY]
-                if status_pair in Conclusion.STATUS_GROUPS["unsatisfiable"]:
-                    some_unsatisfiable = True
-                if status_pair in Conclusion.STATUS_GROUPS["satisfiable"]:
-                    some_satisfiable = True
-                if some_satisfiable and some_unsatisfiable:
-                    contradictions.append(problem)
+    def contradictions_between_solvers(evaluation: Dict[str, Dict[str, dict]], actual_evaluation, solvers)\
+            -> Optional[List[Tuple[str, str]]]:
+        contradictions: List[Tuple[str, str]] = []
+        for solver in solvers:
+            for problem in evaluation[solver].keys():
+                solver_status = evaluation[solver][problem]
+                actual_status = actual_evaluation[problem]
+                if solver_status in Conclusion.STATUS_GROUPS["satisfiable"] \
+                        and actual_status in Conclusion.STATUS_GROUPS["unsatisfiable"] \
+                        or solver_status in Conclusion.STATUS_GROUPS["unsatisfiable"] \
+                        and actual_status in Conclusion.STATUS_GROUPS["satisfiable"]:
+                    contradictions.append((problem, solver))
         if len(contradictions):
-            return f"{len(contradictions)} contradictions found: {contradictions}"
+            return contradictions
         else:
-            return "no contradictions found"
+            return None
