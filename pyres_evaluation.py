@@ -5,6 +5,7 @@ STATUS_TOPIC = "SZS status"
 
 
 def init_evaluation(solvers: list) -> dict:
+    """ setup a dictionary for the evaluation """
     evaluation_all = {}
     for solver in solvers:
         evaluation_all[solver] = {}
@@ -12,6 +13,7 @@ def init_evaluation(solvers: list) -> dict:
 
 
 def get_solver_and_problem(single_file: ZipInfo) -> (str, str):
+    """ extract solver name and problem name of a problem file path """
     folders = single_file.filename.split("/")
     solver = folders[4]
     problem = folders[5]
@@ -19,6 +21,25 @@ def get_solver_and_problem(single_file: ZipInfo) -> (str, str):
 
 
 def evaluate_archive(zip_name: str, solvers: list, eval_topics: list) -> dict:
+    """ Evaluates a Job output archive and returns a dictionary with the relevant information
+    :param zip_name: name of the job zip file
+    :param solvers: list of solvers that should be evaluated
+    :param eval_topics: list of topics that should be evaluated (e.g. resolvents computed, user time)
+    :return: a nested dictionary with the evalutation in the format
+
+    {
+        "solver1": {
+            "problem1.p": {
+                "SZS Status": "Theorem",
+                "Resolvents computed": "256",
+                "User time": "3.5"
+                ...
+            },
+            ...
+        },
+        ...
+    }
+    """
     zip_file = ZipFile(f"{zip_name}.zip", "r")
     info_list = zip_file.infolist()
     evaluation_all = init_evaluation(solvers)
@@ -34,7 +55,7 @@ def evaluate_archive(zip_name: str, solvers: list, eval_topics: list) -> dict:
 
 
 def evaluate_problem(zip_file: ZipFile, file_info: ZipInfo, eval_topics: list) -> Dict[str, Union[str, float]]:
-    """ returns a dictionary with the results of a single file
+    """ Returns a dictionary with the results of a single file
     e.g. evaluation = {
         "SZS Status": "Theorem",
         "Resolvents computed": "256",
@@ -85,6 +106,11 @@ def extract_result(topic: str, text) -> Optional[float]:
 
 
 def eval_actual_results(problem_zip_name: str) -> dict:
+    """
+    reads the tptp Problems Zip file and extracts the Status from each problem.
+    :param problem_zip_name: name of the zip file
+    :return: a dictionary mapping each problem name to a status
+    """
     zip_file = ZipFile(f"{problem_zip_name}.zip", "r")
     result = {}
     info_list = zip_file.infolist()

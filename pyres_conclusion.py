@@ -61,8 +61,7 @@ def init_dict(topics: List[str]) -> Dict:
 
 def conclude_single_solver(conclusion: dict, evaluation: dict, status: str,
                            sub_type: str, topics: List[str], solver: str):
-    """
-    Find all problems in the evaluation where a given solver has found a given status (e.g. satisfiable).
+    """ Find all problems in the evaluation where a given solver has found a given status (e.g. satisfiable).
     Summarize the information and add it to the conclusion dictionary.
     """
     result_list = {}
