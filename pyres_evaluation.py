@@ -4,22 +4,6 @@ from zipfile import ZipInfo, ZipFile
 STATUS_TOPIC = "SZS status"
 
 
-def init_evaluation(solvers: list) -> dict:
-    """ setup a dictionary for the evaluation """
-    evaluation_all = {}
-    for solver in solvers:
-        evaluation_all[solver] = {}
-    return evaluation_all
-
-
-def get_solver_and_problem(single_file: ZipInfo) -> (str, str):
-    """ extract solver name and problem name of a problem file path """
-    folders = single_file.filename.split("/")
-    solver = folders[4]
-    problem = folders[5]
-    return solver, problem
-
-
 def evaluate_archive(zip_name: str, solvers: list, eval_topics: list) -> dict:
     """ Evaluates a Job output archive and returns a dictionary with the relevant information
     :param zip_name: name of the job zip file
@@ -52,6 +36,22 @@ def evaluate_archive(zip_name: str, solvers: list, eval_topics: list) -> dict:
 
     zip_file.close()
     return evaluation_all
+
+
+def init_evaluation(solvers: list) -> dict:
+    """ setup a dictionary for the evaluation """
+    evaluation_all = {}
+    for solver in solvers:
+        evaluation_all[solver] = {}
+    return evaluation_all
+
+
+def get_solver_and_problem(single_file: ZipInfo) -> (str, str):
+    """ extract solver name and problem name of a problem file path """
+    folders = single_file.filename.split("/")
+    solver = folders[4]
+    problem = folders[5]
+    return solver, problem
 
 
 def evaluate_problem(zip_file: ZipFile, file_info: ZipInfo, eval_topics: list) -> Dict[str, Union[str, float]]:
